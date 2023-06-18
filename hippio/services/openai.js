@@ -16,7 +16,7 @@ async function encode(memory) {
   return response;
 }
 
-async function query(prompt, system="You are a helpful assistant.") {
+async function query(prompt, system="You are a system designed to mimic the biological process of memory storage and reconsolidation.") {
     const messages = [
         { "role": "system", "content": system },
         { "role": "user", "content": prompt }

@@ -20,7 +20,7 @@ async function reconsolidate(memory, context = null) {
     }
 
     // Ask GPT-3 if the memory should be reconsolidated (consolidated or expanded)
-    const action = await decideAction(similarMemories);
+    const action = await decideAction(memory, similarMemories);
 
     if (action === 'consolidate') {
         // Reconsolidation through consolidation: Combine similar memories into a more refined memory
@@ -33,16 +33,13 @@ async function reconsolidate(memory, context = null) {
     // After reconsolidation, the memory is stable but subject to further reconsolidation in the future.
 }
 
-async function decideAction(similarMemories) {
-    // Convert the embeddings back into text (this may need to be adjusted depending on your implementation)
-    const memoriesText = similarMemories.map(memory => openai.decode(memory));
-
+async function decideAction(memory, similarMemories) {
     // Construct a prompt for GPT-3 based on the memories
     let prompt = 'Given the following memories:\n';
-    prompt += memoriesText.join('\n');
+    prompt += [memory.text, ...similarMemories.map(memory => memory.text)].join('\n');
     prompt += '\nShould I consolidate or expand these memories?';
 
-    // Query the GPT-3 model (replace this with your own logic)
+    // Query the GPT-3 model
     const response = await openai.query(prompt);
 
     // Assume the response is in the format "Action: consolidate" or "Action: expand"
@@ -52,12 +49,9 @@ async function decideAction(similarMemories) {
 }
 
 async function consolidate(memory, similarMemories) {
-    // Convert the embeddings back into text
-    const memoriesText = similarMemories.map(m => openai.decode(m));
-
     // Construct a prompt for GPT-3 to generate a more general memory
     let prompt = 'Generate a more general memory from the following memories:\n';
-    prompt += memoriesText.join('\n');
+    prompt += similarMemories.map(m => m.text).join('\n');
 
     // Query the GPT-3 model
     const generalMemoryText = await openai.query(prompt);
@@ -65,19 +59,16 @@ async function consolidate(memory, similarMemories) {
     // Encode the general memory back into an embedding
     const generalMemoryEmbedding = await openai.encode(generalMemoryText);
 
-    // Store the new memory
+    // Store the new memory and delete the original memory
     await supabase.from('memories').insert([{ embedding: generalMemoryEmbedding }]);
+    await supabase.from('memories').delete().eq('id', memory.id);
 }
 
 async function expand(memory, similarMemories) {
-    // Convert the embeddings back into text
-    const memoryText = openai.decode(memory);
-    const similarMemoriesText = similarMemories.map(m => openai.decode(m));
-
     // Construct a prompt for GPT-3 to generate more specific memories
     let prompt = 'Given the following memory and similar memories, generate more specific memories:\n';
-    prompt += 'Main Memory: ' + memoryText + '\n';
-    prompt += 'Similar Memories: \n' + similarMemoriesText.join('\n');
+    prompt += 'Main Memory: ' + memory.text + '\n';
+    prompt += 'Similar Memories: \n' + similarMemories.map(m => m.text).join('\n');
 
     // Query the GPT-3 model
     const specificMemoriesText = await openai.query(prompt);
@@ -85,8 +76,9 @@ async function expand(memory, similarMemories) {
     // Encode the specific memories back into embeddings
     const specificMemoriesEmbeddings = await Promise.all(specificMemoriesText.map(t => openai.encode(t)));
 
-    // Store the new memories
+    // Store the new memories and delete the original memory
     await supabase.from('memories').insert(specificMemoriesEmbeddings.map(embedding => ({ embedding })));
+    await supabase.from('memories').delete().eq('id', memory.id);
 }
 
 async function findSimilarMemories(memory) {
