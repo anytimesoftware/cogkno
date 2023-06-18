@@ -1,21 +1,19 @@
 const express = require('express');
 const router = express.Router();
 
-module.exports = router;
-
-const { openai, supabase } = require('../services/openai');
+// Import the necessary services
+const { encode } = require('../services/openai');
+const { storeEmbedding } = require('../services/supabase');
 
 router.post('/', async (req, res) => {
     const memory = req.body.memory;
 
     try {
         // Generate the embedding using the OpenAI API
-        const embedding = await openai.encode(memory);
+        const embedding = await encode(memory);
 
         // Store the embedding in Supabase
-        const { data, error } = await supabase
-            .from('memories')
-            .insert([{ embedding }]);
+        const { data, error } = await storeEmbedding(embedding);
 
         if (error) throw error;
 
@@ -24,3 +22,5 @@ router.post('/', async (req, res) => {
         res.status(500).send('An error occurred while processing the memory');
     }
 });
+
+module.exports = router;

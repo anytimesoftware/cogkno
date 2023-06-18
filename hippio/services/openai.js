@@ -1,10 +1,4 @@
-const { createClient } = require('@supabase/supabase-js');
 const { Configuration, OpenAIApi } = require("openai");
-
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-);
 
 // Configure the OpenAI API with your API key
 const configuration = new Configuration({
@@ -22,4 +16,4 @@ async function encode(memory) {
   return response;
 }
 
-module.exports = { encode, supabase };
+module.exports = { encode };
