@@ -1,33 +1,58 @@
 const moment = require('moment');
+const { supabase } = require("../services/supabase");
+const { openai } = require("../services/openai");
+
+const SIMILARITY_THRESHOLD = 0.9;
+
+async function recall(query) {
+    // Convert the query into an embedding
+    const queryEmbedding = await openai.encode(query);
+
+    // Query the database for similar memories
+    const { data, error } = await supabase
+        .from('memories')
+        .select('*')
+        .similarity('embedding', queryEmbedding)
+        .order('similarity', {ascending: false});
+
+    if (error) {
+        console.error('Error recalling memory:', error);
+        return null;
+    }
+
+    // Update the recency timestamp of similar memories if they are above the threshold
+    for (let memory of data) {
+        if (memory.similarity >= SIMILARITY_THRESHOLD) {
+            await supabase
+                .from('memories')
+                .update({ recency: new Date() })
+                .eq('id', memory.id);
+        }
+    }
+
+    return data;
+}
 
 async function consolidateMemories() {
     // Sample memories with higher probability for more recent ones
     const sampledMemories = await sampleMemories(process.env.CONSOLIDATION_SAMPLE_SIZE);
 
     for (let memory of sampledMemories) {
-        reconsolidate(memory)
+        const similarMemories = await findSimilarMemories(memory);
+        reconsolidate(memory, similarMemories)
     }
 }
 
-async function reconsolidate(memory, context = null) {
-    // Find similar memories
-    const similarMemories = await findSimilarMemories(memory);
-
-    // If a new context is provided, add it to the similar memories
-    if (context !== null) {
-        const contextEmbedding = await openai.encode(context);
-        similarMemories.push(contextEmbedding);
-    }
-
+async function reconsolidate(memory, context) {
     // Ask GPT-3 if the memory should be reconsolidated (consolidated or expanded)
-    const action = await decideAction(memory, similarMemories);
+    const action = await decideAction(memory, context);
 
     if (action === 'consolidate') {
         // Reconsolidation through consolidation: Combine similar memories into a more refined memory
-        await consolidate(memory, similarMemories);
+        await consolidate(memory, context);
     } else if (action === 'expand') {
         // Reconsolidation through expansion: Generate new memories based on the current one
-        await expand(memory, similarMemories);
+        await expand(memory, context);
     }
 
     // After reconsolidation, the memory is stable but subject to further reconsolidation in the future.
@@ -80,6 +105,8 @@ async function expand(memory, similarMemories) {
     await supabase.from('memories').insert(specificMemoriesEmbeddings.map(embedding => ({ embedding })));
     await supabase.from('memories').delete().eq('id', memory.id);
 }
+
+
 
 async function findSimilarMemories(memory) {
     // Get the embedding for the given memory
@@ -149,3 +176,6 @@ function rouletteWheelSelection(weights) {
 
     return index;
 }
+
+
+module.exports = { recall, consolidateMemories, reconsolidate };

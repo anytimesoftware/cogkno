@@ -30,4 +30,4 @@ async function query(prompt, system="You are a system designed to mimic the biol
     return chatCompletion.data.choices[0].message.content;
 }
 
-module.exports = { encode, query, decode };
+module.exports = { encode, query };
