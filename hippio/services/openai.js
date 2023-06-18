@@ -16,4 +16,18 @@ async function encode(memory) {
   return response;
 }
 
-module.exports = { encode };
+async function query(prompt, system="You are a helpful assistant.") {
+    const messages = [
+        { "role": "system", "content": system },
+        { "role": "user", "content": prompt }
+    ];
+    
+    const chatCompletion = await openai.createChatCompletion({
+        model: "gpt-3.5-turbo",
+        messages: messages
+    });
+
+    return chatCompletion.data.choices[0].message.content;
+}
+
+module.exports = { encode, query, decode };
