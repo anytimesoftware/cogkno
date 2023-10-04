@@ -1,6 +1,7 @@
-what can it mean, to a daydream believer?
+### what can it mean, to a daydream believer?
 
-# AI System Design: Technical Overview
+
+# cogkno: Technical Overview
 
 ## Table of Contents
 1. [LLM Agent](#llm-agent)
