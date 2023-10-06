@@ -1,0 +1,6 @@
+torch
+accelerate
+bitsandbytes
+datasets
+transformers
+peft
